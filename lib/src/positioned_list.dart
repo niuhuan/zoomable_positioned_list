@@ -44,9 +44,7 @@ class PositionedList extends StatefulWidget {
     this.addSemanticIndexes = true,
     this.addRepaintBoundaries = true,
     this.addAutomaticKeepAlives = true,
-  })  : assert(itemCount != null),
-        assert(itemBuilder != null),
-        assert((positionedIndex == 0) || (positionedIndex < itemCount)),
+  })  : assert((positionedIndex == 0) || (positionedIndex < itemCount)),
         super(key: key);
 
   /// Number of items the [itemBuilder] can produce.
@@ -89,7 +87,7 @@ class PositionedList extends StatefulWidget {
   /// See [ScrollView.reverse].
   final bool reverse;
 
-  /// {@template flutter.widgets.scroll_view.shrinkWrap}
+  /// {@macro flutter.widgets.scroll_view.shrinkWrap}
   /// Whether the extent of the scroll view in the [scrollDirection] should be
   /// determined by the contents being viewed.
   ///
@@ -308,7 +306,7 @@ class _PositionedListState extends State<PositionedList> {
   void _schedulePositionNotificationUpdate() {
     if (!updateScheduled) {
       updateScheduled = true;
-      SchedulerBinding.instance?.addPostFrameCallback((_) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
         final elements = registeredElements.value;
         if (elements == null) {
           updateScheduled = false;

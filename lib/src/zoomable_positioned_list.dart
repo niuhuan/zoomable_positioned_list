@@ -8,11 +8,12 @@ import 'dart:math';
 import 'package:collection/collection.dart' show IterableExtension;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
-import '../zoomable_positioned_list.dart';
 
+import 'item_positions_listener.dart';
 import 'item_positions_notifier.dart';
 import 'positioned_list.dart';
 import 'post_mount_callback.dart';
+import 'scroll_offset_listener.dart';
 import 'scroll_offset_notifier.dart';
 
 /// Number of screens to scroll when scrolling a long distance.
@@ -66,9 +67,7 @@ class ZoomablePositionedList extends StatefulWidget {
     this.enableZoom = true,
     this.dragRegionLock = false,
     this.gestureSpeed = 1.0,
-  })  : assert(itemCount != null),
-        assert(itemBuilder != null),
-        itemPositionsNotifier = itemPositionsListener as ItemPositionsNotifier?,
+  })  : itemPositionsNotifier = itemPositionsListener as ItemPositionsNotifier?,
         scrollOffsetNotifier = scrollOffsetListener as ScrollOffsetNotifier?,
         separatorBuilder = null,
         super(key: key);
@@ -105,10 +104,7 @@ class ZoomablePositionedList extends StatefulWidget {
     this.enableZoom = true,
     this.dragRegionLock = false,
     this.gestureSpeed = 1.0,
-  })  : assert(itemCount != null),
-        assert(itemBuilder != null),
-        assert(separatorBuilder != null),
-        itemPositionsNotifier = itemPositionsListener as ItemPositionsNotifier?,
+  })  : itemPositionsNotifier = itemPositionsListener as ItemPositionsNotifier?,
         scrollOffsetNotifier = scrollOffsetListener as ScrollOffsetNotifier?,
         super(key: key);
 
@@ -155,7 +151,7 @@ class ZoomablePositionedList extends StatefulWidget {
   /// See [ScrollView.reverse].
   final bool reverse;
 
-  /// {@template flutter.widgets.scroll_view.shrinkWrap}
+  /// {@macro flutter.widgets.scroll_view.shrinkWrap}
   /// Whether the extent of the scroll view in the [scrollDirection] should be
   /// determined by the contents being viewed.
   ///
@@ -221,6 +217,9 @@ class ZoomablePositionedList extends StatefulWidget {
 /// Controller to jump or scroll to a particular position in a
 /// [ZoomablePositionedList].
 class ItemScrollController {
+  /// Creates an [ItemScrollController].
+  ItemScrollController();
+
   /// Whether any ZoomablePositionedList objects are attached this object.
   ///
   /// If `false`, then [jumpTo] and [scrollTo] must not be called.
@@ -307,6 +306,14 @@ class ItemScrollController {
 /// This is an experimental API and is subject to change.
 /// Behavior may be ill-defined in some cases.  Please file bugs.
 class ScrollOffsetController {
+  /// Creates a [ScrollOffsetController].
+  ScrollOffsetController();
+
+  /// Animate the scroll position by a relative pixel [offset].
+  ///
+  /// Positive values scroll forward (down/right depending on axis), negative
+  /// values scroll backward (up/left). This controller must be attached to a
+  /// [ZoomablePositionedList] via `scrollOffsetController`.
   Future<void> animateScroll(
       {required double offset,
       required Duration duration,
@@ -322,7 +329,10 @@ class ScrollOffsetController {
   }
 
   double get offset => _scrollableListState!.primary.scrollController.offset;
-  double get maxScrollExtent => _scrollableListState!.primary.scrollController.position.maxScrollExtent;
+
+  /// The current maximum scroll extent of the attached list.
+  double get maxScrollExtent =>
+      _scrollableListState!.primary.scrollController.position.maxScrollExtent;
 
   _ZoomablePositionedListState? _scrollableListState;
 
@@ -359,20 +369,18 @@ class _ZoomablePositionedListState extends State<ZoomablePositionedList>
 
   double previousOffset = 0;
 
-  Matrix4 _transformation = Matrix4.identity();
   double _scale = 1.0;
   double _panOffset = 0.0;
   double _baseScale = 1.0;
-  Offset _lastFocalPoint = Offset.zero;
   int _pointers = 0;
 
   @override
   void initState() {
     super.initState();
     _scale = widget.initialScale;
-    _transformation = Matrix4.diagonal3Values(_scale, _scale, 1.0);
 
-    ItemPosition? initialPosition = PageStorage.of(context)?.readState(context);
+    final ItemPosition? initialPosition =
+        PageStorage.maybeOf(context)?.readState(context) as ItemPosition?;
     primary.target = initialPosition?.index ?? widget.initialScrollIndex;
     primary.alignment =
         initialPosition?.itemLeadingEdge ?? widget.initialAlignment;
@@ -870,7 +878,7 @@ class _ZoomablePositionedListState extends State<ZoomablePositionedList>
     if (_isTransitioning) {
       final scrollCompleter = Completer<void>();
       _stopScroll(canceled: true);
-      SchedulerBinding.instance?.addPostFrameCallback((_) async {
+      SchedulerBinding.instance.addPostFrameCallback((_) async {
         await _startScroll(
           index: index,
           alignment: alignment,
@@ -919,7 +927,7 @@ class _ZoomablePositionedListState extends State<ZoomablePositionedList>
       final startCompleter = Completer<void>();
       final endCompleter = Completer<void>();
       startAnimationCallback = () {
-        SchedulerBinding.instance?.addPostFrameCallback((_) {
+        SchedulerBinding.instance.addPostFrameCallback((_) {
           startAnimationCallback = () {};
           _animationController?.dispose();
           _animationController =
@@ -1002,12 +1010,11 @@ class _ZoomablePositionedListState extends State<ZoomablePositionedList>
         .where((ItemPosition position) =>
             position.itemLeadingEdge < 1 && position.itemTrailingEdge > 0);
     if (itemPositions.isNotEmpty) {
-      PageStorage.of(context)?.writeState(
-          context,
-          itemPositions.reduce((value, element) =>
-              value.itemLeadingEdge < element.itemLeadingEdge
-                  ? value
-                  : element));
+      PageStorage.maybeOf(context)?.writeState(
+        context,
+        itemPositions.reduce((value, element) =>
+            value.itemLeadingEdge < element.itemLeadingEdge ? value : element),
+      );
     }
     widget.itemPositionsNotifier?.itemPositions.value = itemPositions;
   }
