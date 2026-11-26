@@ -14,6 +14,10 @@ import 'viewport.dart';
 class UnboundedCustomScrollView extends CustomScrollView {
   final bool _shrinkWrap;
 
+  /// Called for a mouse-wheel [PointerScrollEvent] before the surrounding
+  /// [Scrollable] can jump. Trackpads are left to Flutter.
+  final void Function(PointerScrollEvent event)? onPointerScroll;
+
   const UnboundedCustomScrollView({
     Key? key,
     Axis scrollDirection = Axis.vertical,
@@ -28,6 +32,7 @@ class UnboundedCustomScrollView extends CustomScrollView {
     List<Widget> slivers = const <Widget>[],
     int? semanticChildCount,
     DragStartBehavior dragStartBehavior = DragStartBehavior.start,
+    this.onPointerScroll,
   })  : _shrinkWrap = shrinkWrap,
         _anchor = anchor,
         super(
@@ -61,8 +66,18 @@ class UnboundedCustomScrollView extends CustomScrollView {
     AxisDirection axisDirection,
     List<Widget> slivers,
   ) {
+    final Widget viewport;
     if (_shrinkWrap) {
-      return CustomShrinkWrappingViewport(
+      viewport = CustomShrinkWrappingViewport(
+        axisDirection: axisDirection,
+        offset: offset,
+        slivers: slivers,
+        cacheExtent: cacheExtent,
+        center: center,
+        anchor: anchor,
+      );
+    } else {
+      viewport = UnboundedViewport(
         axisDirection: axisDirection,
         offset: offset,
         slivers: slivers,
@@ -71,13 +86,22 @@ class UnboundedCustomScrollView extends CustomScrollView {
         anchor: anchor,
       );
     }
-    return UnboundedViewport(
-      axisDirection: axisDirection,
-      offset: offset,
-      slivers: slivers,
-      cacheExtent: cacheExtent,
-      center: center,
-      anchor: anchor,
+    final handler = onPointerScroll;
+    if (handler == null) return viewport;
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerSignal: (PointerSignalEvent event) {
+        if (event is! PointerScrollEvent ||
+            event.kind != PointerDeviceKind.mouse ||
+            event.scrollDelta == Offset.zero) {
+          return;
+        }
+        GestureBinding.instance.pointerSignalResolver.register(event,
+            (PointerSignalEvent event) {
+          handler(event as PointerScrollEvent);
+        });
+      },
+      child: viewport,
     );
   }
 }

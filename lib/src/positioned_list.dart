@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
@@ -44,6 +45,7 @@ class PositionedList extends StatefulWidget {
     this.addSemanticIndexes = true,
     this.addRepaintBoundaries = true,
     this.addAutomaticKeepAlives = true,
+    this.onPointerScroll,
   })  : assert((positionedIndex == 0) || (positionedIndex < itemCount)),
         super(key: key);
 
@@ -130,6 +132,10 @@ class PositionedList extends StatefulWidget {
   /// See [SliverChildBuilderDelegate.addAutomaticKeepAlives].
   final bool addAutomaticKeepAlives;
 
+  /// Mouse-wheel callback registered inside the scroll view, so it wins over
+  /// the default [Scrollable] jump. Null leaves the wheel to Flutter.
+  final void Function(PointerScrollEvent event)? onPointerScroll;
+
   @override
   State<StatefulWidget> createState() => _PositionedListState();
 }
@@ -174,6 +180,7 @@ class _PositionedListState extends State<PositionedList> {
           cacheExtent: widget.cacheExtent,
           physics: widget.physics,
           shrinkWrap: widget.shrinkWrap,
+          onPointerScroll: widget.onPointerScroll,
           semanticChildCount: widget.semanticChildCount ?? widget.itemCount,
           slivers: <Widget>[
             if (widget.positionedIndex > 0)

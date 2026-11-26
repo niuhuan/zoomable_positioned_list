@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:collection/collection.dart' show IterableExtension;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
@@ -67,6 +68,7 @@ class ZoomablePositionedList extends StatefulWidget {
     this.enableZoom = true,
     this.dragRegionLock = false,
     this.gestureSpeed = 1.0,
+    this.onPointerScroll,
   })  : itemPositionsNotifier = itemPositionsListener as ItemPositionsNotifier?,
         scrollOffsetNotifier = scrollOffsetListener as ScrollOffsetNotifier?,
         separatorBuilder = null,
@@ -104,6 +106,7 @@ class ZoomablePositionedList extends StatefulWidget {
     this.enableZoom = true,
     this.dragRegionLock = false,
     this.gestureSpeed = 1.0,
+    this.onPointerScroll,
   })  : itemPositionsNotifier = itemPositionsListener as ItemPositionsNotifier?,
         scrollOffsetNotifier = scrollOffsetListener as ScrollOffsetNotifier?,
         super(key: key);
@@ -209,6 +212,10 @@ class ZoomablePositionedList extends StatefulWidget {
   final bool enableZoom;
   final bool dragRegionLock;
   final double gestureSpeed;
+
+  /// Mouse-wheel events while the list is at its resting scale. Ignored while
+  /// zoomed so pinch, pan, and double-tap restore keep the wheel.
+  final void Function(PointerScrollEvent event)? onPointerScroll;
 
   @override
   State<StatefulWidget> createState() => _ZoomablePositionedListState();
@@ -333,6 +340,32 @@ class ScrollOffsetController {
   /// The current maximum scroll extent of the attached list.
   double get maxScrollExtent =>
       _scrollableListState!.primary.scrollController.position.maxScrollExtent;
+
+  bool get hasClients {
+    final controller = _scrollableListState?.primary.scrollController;
+    return controller != null && controller.hasClients;
+  }
+
+  double? get pixels => hasClients
+      ? _scrollableListState!.primary.scrollController.offset
+      : null;
+
+  double? get minScrollExtent => hasClients
+      ? _scrollableListState!
+          .primary.scrollController.position.minScrollExtent
+      : null;
+
+  /// Jump to an absolute offset, clamped to the current scroll range.
+  void jumpTo(double offset) {
+    final controller = _scrollableListState?.primary.scrollController;
+    if (controller == null || !controller.hasClients) return;
+    final position = controller.position;
+    final min = position.minScrollExtent;
+    final max = position.maxScrollExtent;
+    final target = max < min ? offset.clamp(max, min) : offset.clamp(min, max);
+    if (target == controller.offset) return;
+    controller.jumpTo(target.toDouble());
+  }
 
   _ZoomablePositionedListState? _scrollableListState;
 
@@ -794,6 +827,8 @@ class _ZoomablePositionedListState extends State<ZoomablePositionedList>
                       addSemanticIndexes: widget.addSemanticIndexes,
                       semanticChildCount: widget.semanticChildCount,
                       padding: widget.padding,
+                      onPointerScroll:
+                          _scale > 1.0 ? null : widget.onPointerScroll,
                       addAutomaticKeepAlives: widget.addAutomaticKeepAlives,
                       addRepaintBoundaries: widget.addRepaintBoundaries,
                     ),
@@ -830,6 +865,8 @@ class _ZoomablePositionedListState extends State<ZoomablePositionedList>
                         addSemanticIndexes: widget.addSemanticIndexes,
                         semanticChildCount: widget.semanticChildCount,
                         padding: widget.padding,
+                        onPointerScroll:
+                            _scale > 1.0 ? null : widget.onPointerScroll,
                         addAutomaticKeepAlives: widget.addAutomaticKeepAlives,
                         addRepaintBoundaries: widget.addRepaintBoundaries,
                       ),
